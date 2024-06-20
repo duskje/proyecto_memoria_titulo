@@ -152,7 +152,7 @@ class OTACampaignUpdateListener(tornado.web.RequestHandler):
 async def main():
     try:
         port = int(os.getenv('PORT'))
-    except ValueError:
+    except TypeError:
         logger.error('No port found at .env')
         return
 
