@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 
+import asyncio
+import json
+
 import tornado
+
+from loguru import logger
 
 
 @dataclass(frozen=True)
@@ -13,7 +18,7 @@ class Device:
 @dataclass(frozen=True)
 class Rollout:
     id: int
-    device: Device
+    device_id: int
     package_version: str
 
 
@@ -44,7 +49,7 @@ class OTACampaign:
         device = self.device_registration_by_id[device_id]
 
         rollout = Rollout(id=self.rollout_id,
-                          device=device,
+                          device_id=device.id,
                           package_version=package_version)
 
         self.rollout_queue.append(rollout)
@@ -53,30 +58,39 @@ class OTACampaign:
     def add_to_rollout_queue_by_tag(self, device_tag: str, package_version: str):
         for device in self.device_registration_by_tag[device_tag]:
             rollout = Rollout(id=self.rollout_id,
-                              device=device,
+                              device_id=device.id,
                               package_version=package_version)
 
             self.rollout_queue.append(rollout)
             self.rollout_id += 1
 
 
-global_ota_campaign_state = OTACampaign()
+global_ota_campaign = OTACampaign()
 
 
-class OTACampaignRegistration:
-    pass
+class OTACampaignRegistration(tornado.web.RequestHandler):
+    def post(self):
+        device_json = json.loads(self.request.body)
+        device = Device(**dict(device_json))
+        logger.info(f'Got device {device}')
+
+        global_ota_campaign.register_device(device)
+        logger.info(f'Device {device} was registered')
 
 
 class OTACampaignRollout:
-    pass
+    def get(self):
+        pass
 
 
 async def main():
     app = tornado.web.Application(
         [
-            ('/{}', )
+            ('/register/device', OTACampaignRegistration)
         ]
     )
+    app.listen(5000)
+    await asyncio.Event().wait()
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
