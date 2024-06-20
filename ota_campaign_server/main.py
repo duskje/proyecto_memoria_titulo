@@ -88,6 +88,7 @@ async def main():
         port = int(os.getenv('PORT'))
     except ValueError:
         logger.error('No port found at .env')
+        return
 
     logger.info(f'Running server at port {port}')
 
