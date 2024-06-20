@@ -1,1 +1,1 @@
-from rpm import RPM
+from .rpm import RPM
