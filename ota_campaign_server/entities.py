@@ -16,8 +16,9 @@ class Device:
 @dataclass(frozen=True)
 class Rollout:
     id: int
-    device_id: int
+    device_id: str
     package_version: str
+    package_name: str
 
     def json(self):
         return json.dumps(self, default=lambda o: o.__dict__)

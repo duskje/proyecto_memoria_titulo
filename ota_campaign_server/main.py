@@ -1,24 +1,36 @@
 import os
 import asyncio
 import json
+from collections import deque
 
 import tornado
 
 from dotenv import load_dotenv
 from loguru import logger
 
+import constants
 from entities import Device, Rollout
+from ota_campaign_server.dto import RolloutDTO
 
 load_dotenv()
 
 
+class FullRolloutQueueError(Exception):
+    pass
+
+class DeviceNotRegisteredError(Exception):
+    pass
+
+
 class OTACampaign:
     def __init__(self):
+        self.cond = tornado.locks.Condition()
+
         self.device_registration_by_id = {}
         self.device_registration_by_tag = {}
 
         self.package_registry = []
-        self.rollout_queue = []
+        self.rollout_queue = deque()
         self.rollout_id = 0
 
     def add_package_to_registry(self):
@@ -35,24 +47,38 @@ class OTACampaign:
             else:
                 self.device_registration_by_tag[device_tag].add(device)
 
-    def add_to_rollout_queue_by_id(self, device_id: int, package_version: str):
-        device = self.device_registration_by_id[device_id]
-
-        rollout = Rollout(id=self.rollout_id,
-                          device_id=device.id,
-                          package_version=package_version)
-
-        self.rollout_queue.append(rollout)
+    def _new_rollout(self, device_id: str, package_version: str, package_name: str):
+        current_rollout_id = self.rollout_id
         self.rollout_id += 1
+        return Rollout(id=current_rollout_id,
+                       device_id=device_id,
+                       package_version=package_version,
+                       package_name=package_name)
 
-    def add_to_rollout_queue_by_tag(self, device_tag: str, package_version: str):
+    def add_to_rollout_queue_by_id(self, device_id: str, package_version: str, package_name: str):
+        new_rollout = self._new_rollout(device_id, package_version, package_name)
+        self.rollout_queue.append(new_rollout)
+
+        if len(self.rollout_queue) > constants.ROLLOUT_QUEUE_SIZE:
+            raise FullRolloutQueueError('Rollout queue is full')
+
+        self.cond.notify_all()
+
+    def add_to_rollout_queue_by_tag(self, device_tag: str, package_version: str, package_name: str):
         for device in self.device_registration_by_tag[device_tag]:
-            rollout = Rollout(id=self.rollout_id,
-                              device_id=device.id,
-                              package_version=package_version)
+            self.add_to_rollout_queue_by_id(device.id, package_version, package_name)
 
-            self.rollout_queue.append(rollout)
-            self.rollout_id += 1
+    def rollout(self, device_id: str):
+        if self.device_registration_by_id.get(device_id) is None:
+            raise DeviceNotRegisteredError(f'Could not find device with id "{device_id}"')
+
+        if not self.rollout_queue:
+            return None
+
+        if self.rollout_queue[0].device_id != device_id:
+            return None
+
+        return self.rollout_queue.popleft()
 
 
 global_ota_campaign = OTACampaign()
@@ -72,7 +98,7 @@ class OTACampaignRegistration(tornado.web.RequestHandler):
 
         global_ota_campaign.register_device(device)
 
-        logger.info(f'Device "{device}"  was registered successfully')
+        logger.info(f'Device "{device}" was registered successfully')
 
 
 class OTACampaignListRegisteredDevices(tornado.web.RequestHandler):
@@ -80,9 +106,47 @@ class OTACampaignListRegisteredDevices(tornado.web.RequestHandler):
         return self.write(json.dumps([device.json() for device in global_ota_campaign.device_registration_by_id.values()]))
 
 
-class OTACampaignRollout:
-    def get(self):
-        pass
+class OTACampaignRollout(tornado.web.RequestHandler):
+    def post(self):
+        request_json = json.loads(self.request.body)
+        try:
+            rollout_dto = RolloutDTO.from_json(request_json)
+        except KeyError as e:
+            raise tornado.web.HTTPError(status_code=400, log_message=str(e))
+
+        for device_id in rollout_dto.device_ids:
+            logger.info(f'Device "{device_id}" sent to the rollout queue')
+            global_ota_campaign.add_to_rollout_queue_by_id(device_id,
+                                                           rollout_dto.package_version,
+                                                           rollout_dto.package_name)
+
+
+class OTACampaignUpdateListener(tornado.web.RequestHandler):
+    async def get(self):
+        try:
+            device_id = json.loads(self.request.body)['device_id']
+        except KeyError:
+            raise tornado.web.HTTPError(status_code=400, log_message="'device_id' key missing")
+
+        logger.info(f'Device {device_id} listening for updates')
+
+        try:
+            rollout = global_ota_campaign.rollout(device_id)
+        except DeviceNotRegisteredError:
+            raise tornado.web.HTTPError(status_code=400, log_message=f"Device '{device_id}' not registered")
+
+        while not rollout:
+            wait_future = global_ota_campaign.cond.wait()
+
+            try:
+                await wait_future
+            except asyncio.CancelledError:
+                logger.info(f'Device {device_id} disconnected')
+                return
+            rollout = global_ota_campaign.rollout(device_id)
+
+        logger.info(f'Sending rollout "{rollout}" to "{device_id}"')
+        return self.write(rollout.json())
 
 
 async def main():
@@ -97,7 +161,9 @@ async def main():
     app = tornado.web.Application(
         [
             ('/device', OTACampaignRegistration),
-            ('/devices', OTACampaignListRegisteredDevices)
+            ('/devices', OTACampaignListRegisteredDevices),
+            ('/listen_for_updates', OTACampaignUpdateListener),
+            ('/rollout', OTACampaignRollout),
         ]
     )
 
