@@ -10,7 +10,7 @@ from loguru import logger
 
 import constants
 from entities import Device, Rollout
-from ota_campaign_server.dto import RolloutDTO
+from dto import RolloutDTO
 
 load_dotenv()
 
