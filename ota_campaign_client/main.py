@@ -23,17 +23,10 @@ def main():
 
         rollout_url = f'http://{device_config.ota_campaign_address}/listen_for_updates'
 
-        try:
-            response = requests.get(rollout_url,
-                                    data=json.dumps({'device_id': device_config.id}),
-                                    timeout=constants.LONG_POLL_TIMEOUT)
-
-            response.raise_for_status()
-
-            logger.debug(response.content)
-        except ReadTimeout:
-            logger.info('Timed out, polling again...')
-
+        response = requests.get(rollout_url,
+                     data=json.dumps({'device_id': device_config.id}))
+        response.raise_for_status()
+        logger.debug(response.content)
 
 
 if __name__ == '__main__':
