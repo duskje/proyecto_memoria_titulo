@@ -31,3 +31,6 @@ class DeviceConfig:
             raise KeyError(f"There is no key {key}, available: {available_keys}")
 
         setattr(self, key, value)
+
+    def as_dict(self):
+        return asdict(self)
