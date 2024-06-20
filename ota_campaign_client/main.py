@@ -6,6 +6,7 @@ import constants
 from loguru import logger
 from dotenv import load_dotenv
 import requests
+from requests import ReadTimeout
 
 
 def main():
@@ -22,10 +23,17 @@ def main():
 
         rollout_url = f'http://{device_config.ota_campaign_address}/listen_for_updates'
 
-        response = requests.get(rollout_url, data=json.dumps({'device_id': device_config.id}))
-        response.raise_for_status()
+        try:
+            response = requests.get(rollout_url,
+                                    data=json.dumps({'device_id': device_config.id}),
+                                    timeout=constants.LONG_POLL_TIMEOUT)
 
-        logger.debug(response.content)
+            response.raise_for_status()
+
+            logger.debug(response.content)
+        except ReadTimeout:
+            logger.info('Timed out, polling again...')
+
 
 
 if __name__ == '__main__':
