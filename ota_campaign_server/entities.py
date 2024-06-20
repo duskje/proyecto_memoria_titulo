@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Device:
     id: str # guid
-    address: str
+    # address: str
     tags: tuple[str]
 
     def json(self):
