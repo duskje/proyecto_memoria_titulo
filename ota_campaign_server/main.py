@@ -1,11 +1,15 @@
+import os
 import asyncio
 import json
 
 import tornado
 
+from dotenv import load_dotenv
 from loguru import logger
+
 from entities import Device, Rollout
 
+load_dotenv()
 
 class OTACampaign:
     def __init__(self):
@@ -80,13 +84,21 @@ class OTACampaignRollout:
 
 
 async def main():
+    try:
+        port = int(os.getenv('PORT'))
+    except ValueError:
+        logger.error('No port found at .env')
+
+    logger.info(f'Running server at port {port}')
+
     app = tornado.web.Application(
         [
             ('/device', OTACampaignRegistration),
             ('/devices', OTACampaignListRegisteredDevices)
         ]
     )
-    app.listen(5000)
+
+    app.listen(port)
     await asyncio.Event().wait()
 
 if __name__ == '__main__':
