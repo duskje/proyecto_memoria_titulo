@@ -63,14 +63,15 @@ class OTACampaignRegistration(tornado.web.RequestHandler):
         device_data = json.loads(self.request.body)
 
         device_data = dict(device_data)
+        tags = device_data.get('tags')
 
         device = Device(id=device_data.get('id'),
-                        address=device_data.get('address'),
-                        tags=tuple(device_data.get('tags')))
+                        tags=tuple(tags) if tags is not None else tuple())
 
-        logger.info(f'Got device "{device}"')
+        logger.info(f'Got device "{device}" from address {self.request.remote_ip}')
 
         global_ota_campaign.register_device(device)
+
         logger.info(f'Device "{device}"  was registered successfully')
 
 
