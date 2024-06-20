@@ -1,3 +1,5 @@
+import json
+
 from device_info import DeviceConfig
 import constants
 
@@ -16,10 +18,14 @@ def main():
         return
 
     while True:
-        list_devices = f'http://{device_config.ota_campaign_address}/devices'
-        print(requests.get(list_devices))
+        logger.info('Checking if there is a new rollout from OTA Campaign server...')
 
-        logger.info('Polling from OTA Campaign server...')
+        rollout_url = f'http://{device_config.ota_campaign_address}/listen_for_updates'
+
+        response = requests.get(rollout_url, data=json.dumps({'device_id': device_config.id}))
+        response.raise_for_status()
+
+        logger.debug(response.content)
 
 
 if __name__ == '__main__':
