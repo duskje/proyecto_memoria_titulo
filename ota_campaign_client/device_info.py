@@ -5,6 +5,7 @@ import yaml
 
 @dataclass
 class DeviceConfig:
+    id: Optional[str] = None
     hardware_id: Optional[str] = None
     address: Optional[str] = None
     auth_token: Optional[str] = None

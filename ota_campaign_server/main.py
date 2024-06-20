@@ -11,6 +11,7 @@ from entities import Device, Rollout
 
 load_dotenv()
 
+
 class OTACampaign:
     def __init__(self):
         self.device_registration_by_id = {}

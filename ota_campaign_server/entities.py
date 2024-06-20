@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Device:
-    id: int
+    id: str # guid
     address: str
     tags: tuple[str]
 
