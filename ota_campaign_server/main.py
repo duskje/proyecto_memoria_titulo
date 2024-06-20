@@ -1,31 +1,10 @@
-from dataclasses import dataclass
-
 import asyncio
 import json
 
 import tornado
 
 from loguru import logger
-
-
-@dataclass(frozen=True)
-class Device:
-    id: int
-    address: str
-    tags: tuple[str]
-
-    def json(self):
-        return json.dumps(self, default=lambda o: o.__dict__)
-
-
-@dataclass(frozen=True)
-class Rollout:
-    id: int
-    device_id: int
-    package_version: str
-
-    def json(self):
-        return json.dumps(self, default=lambda o: o.__dict__)
+from entities import Device, Rollout
 
 
 class OTACampaign:
@@ -93,6 +72,7 @@ class OTACampaignRegistration(tornado.web.RequestHandler):
 class OTACampaignListRegisteredDevices(tornado.web.RequestHandler):
     def get(self):
         return self.write(json.dumps([device.json() for device in global_ota_campaign.device_registration_by_id.values()]))
+
 
 class OTACampaignRollout:
     def get(self):
