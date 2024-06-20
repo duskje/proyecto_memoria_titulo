@@ -1,22 +1,25 @@
-import time
-import os
-
-from packaging.rpm import RPM
+from device_info import DeviceConfig
+import constants
 
 from loguru import logger
-
 from dotenv import load_dotenv
+import requests
 
 
 def main():
     load_dotenv()
-    polling_interval_secs = float(os.getenv('POLLING_INTERVAL_SECS'))
+
+    try:
+        device_config = DeviceConfig.from_yaml(constants.CLIENT_CONFIG_PATH)
+    except FileNotFoundError:
+        logger.error('Config file not found')
+        return
 
     while True:
-        logger.info('Polling from OTA Campaign server...')
-        time.sleep(polling_interval_secs)
+        list_devices = f'http://{device_config.ota_campaign_address}/devices'
+        print(requests.get(list_devices))
 
-    # logger.debug(RPM().get_current_package_version('openssl'))
+        logger.info('Polling from OTA Campaign server...')
 
 
 if __name__ == '__main__':
