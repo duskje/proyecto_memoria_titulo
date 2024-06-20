@@ -12,7 +12,7 @@ from loguru import logger
 class Device:
     id: int
     address: str
-    tags: list[str]
+    tags: tuple[str]
 
 
 @dataclass(frozen=True)
@@ -70,12 +70,24 @@ global_ota_campaign = OTACampaign()
 
 class OTACampaignRegistration(tornado.web.RequestHandler):
     def post(self):
-        device_json = json.loads(self.request.body)
-        device = Device(**dict(device_json))
-        logger.info(f'Got device {device}')
+        device_data = json.loads(self.request.body)
+
+        device_data = dict(device_data)
+
+        device = Device(id=device_data.get('id'),
+                        address=device_data.get('address'),
+                        tags=tuple(device_data.get('tags')))
+
+        logger.info(f'Got device "{device}"')
 
         global_ota_campaign.register_device(device)
-        logger.info(f'Device {device} was registered')
+        logger.info(f'Device "{device}"  was registered successfully')
+
+
+class OTACampaignListRegisteredDevices(tornado.web.RequestHandler):
+    def get(self):
+        pass
+
 
 
 class OTACampaignRollout:
@@ -86,7 +98,8 @@ class OTACampaignRollout:
 async def main():
     app = tornado.web.Application(
         [
-            ('/register/device', OTACampaignRegistration)
+            ('/device', OTACampaignRegistration),
+            ('/devices', OTACampaignListRegisteredDevices)
         ]
     )
     app.listen(5000)
