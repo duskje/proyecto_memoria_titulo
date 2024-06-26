@@ -11,5 +11,8 @@ data = json.dumps({
     'package_name': package_name,
 })
 
-response = requests.post('http://127.0.0.1:5000/rollout', data=data)
+server_address = '127.0.0.1:5000'
+# server_address = '137.184.15.211:3636'
+
+response = requests.post(f'http://{server_address}/rollout', data=data)
 print(response)

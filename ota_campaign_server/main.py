@@ -23,8 +23,8 @@ class DeviceNotRegisteredError(Exception):
 
 
 class OTACampaign:
-    def __init__(self):
-        self.cond = tornado.locks.Condition()
+    def __init__(self, cond: tornado.locks.Condition):
+        self.cond = cond
 
         self.device_registration_by_id = {}
         self.device_registration_by_tag = {}
@@ -81,7 +81,45 @@ class OTACampaign:
         return self.rollout_queue.popleft()
 
 
-global_ota_campaign = OTACampaign()
+class DeviceConnectionManager:
+    def __init__(self, cond: tornado.locks.Condition):
+        self.cond = cond
+        self.wait_until_dropped_cond = tornado.locks.Condition()
+        self.semaphore = tornado.locks.Semaphore()
+
+        self.connected_devices = set()
+        self.devices_to_drop = set()
+
+    async def add_connection(self, device_id: str):
+        await self.semaphore.acquire()
+
+        if device_id in self.connected_devices:
+            self.devices_to_drop.add(device_id)
+            self.cond.notify_all()
+            await self.wait_until_dropped_cond.wait()
+
+        self.connected_devices.add(device_id)
+
+        self.semaphore.release()
+
+    def drop(self, device_id: str):
+        in_drop_list = device_id in self.devices_to_drop
+
+        if in_drop_list:
+            self.devices_to_drop.remove(device_id)
+
+            self.connected_devices.remove(device_id)
+            self.wait_until_dropped_cond.notify(1)
+
+        return in_drop_list
+
+    def disconnect(self, device_id: str):
+        self.connected_devices.remove(device_id)
+
+
+rollout_cond = tornado.locks.Condition()
+global_ota_campaign = OTACampaign(rollout_cond)
+global_device_connection_manager = DeviceConnectionManager(rollout_cond)
 
 
 class OTACampaignRegistration(tornado.web.RequestHandler):
@@ -125,6 +163,7 @@ class OTACampaignUpdateListener(tornado.web.RequestHandler):
     async def get(self):
         try:
             device_id = json.loads(self.request.body)['device_id']
+            await global_device_connection_manager.add_connection(device_id)
         except KeyError:
             raise tornado.web.HTTPError(status_code=400, log_message="'device_id' key missing")
 
@@ -141,11 +180,21 @@ class OTACampaignUpdateListener(tornado.web.RequestHandler):
             try:
                 await wait_future
             except asyncio.CancelledError:
+                global_device_connection_manager.drop(device_id)
                 logger.info(f'Device {device_id} disconnected')
                 return
+
+            if global_device_connection_manager.drop(device_id):
+                logger.info(f'Last connection for {device_id} dropped')
+                return
+
             rollout = global_ota_campaign.rollout(device_id)
 
+        global_device_connection_manager.disconnect(device_id)
+        logger.info(f'Closing connection for "{device_id}"')
+
         logger.info(f'Sending rollout "{rollout}" to "{device_id}"')
+
         return self.write(rollout.json())
 
 
