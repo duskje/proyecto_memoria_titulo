@@ -31,4 +31,4 @@ class Flatpak:
 
 
 if __name__ == "__main__":
-    Flatpak().execute_update('org.flatpak.debian_package_python', )
+    Flatpak().execute_update('org.flatpak.debian_package_python', '84f856addf54777f242d8f86b6176f8ba07c97c3ad6c07d19421403de65368d7')
