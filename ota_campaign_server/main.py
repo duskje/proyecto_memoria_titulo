@@ -47,16 +47,16 @@ class OTACampaign:
             else:
                 self.device_registration_by_tag[device_tag].add(device)
 
-    def _new_rollout(self, device_id: str, package_version: str, package_name: str):
+    def _new_rollout(self, device_id: str, commit: str, package_name: str):
         current_rollout_id = self.rollout_id
         self.rollout_id += 1
         return Rollout(id=current_rollout_id,
                        device_id=device_id,
-                       package_version=package_version,
+                       commit=commit,
                        package_name=package_name)
 
-    def add_to_rollout_queue_by_id(self, device_id: str, package_version: str, package_name: str):
-        new_rollout = self._new_rollout(device_id, package_version, package_name)
+    def add_to_rollout_queue_by_id(self, device_id: str, commit: str, package_name: str):
+        new_rollout = self._new_rollout(device_id, commit, package_name)
         self.rollout_queue.append(new_rollout)
 
         if len(self.rollout_queue) > constants.ROLLOUT_QUEUE_SIZE:
@@ -64,9 +64,9 @@ class OTACampaign:
 
         self.cond.notify_all()
 
-    def add_to_rollout_queue_by_tag(self, device_tag: str, package_version: str, package_name: str):
+    def add_to_rollout_queue_by_tag(self, device_tag: str, commit: str, package_name: str):
         for device in self.device_registration_by_tag[device_tag]:
-            self.add_to_rollout_queue_by_id(device.id, package_version, package_name)
+            self.add_to_rollout_queue_by_id(device.id, commit, package_name)
 
     def rollout(self, device_id: str):
         if self.device_registration_by_id.get(device_id) is None:

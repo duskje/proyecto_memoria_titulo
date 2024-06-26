@@ -17,7 +17,7 @@ class Device:
 class Rollout:
     id: int
     device_id: str
-    package_version: str
+    commit: str
     package_name: str
 
     def json(self):
