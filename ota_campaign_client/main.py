@@ -18,6 +18,8 @@ def main():
         logger.error('Config file not found')
         return
 
+    logger.info(f'Device ID: {device_config.id}')
+
     while True:
         logger.info('Checking if there is a new rollout from OTA Campaign server...')
 
