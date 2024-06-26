@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import requests
 from requests import ReadTimeout
 
-from ota_campaign_client.flatpak import Flatpak
+from flatpak import Flatpak
 
 
 def main():
@@ -42,8 +42,6 @@ def main():
 
         logger.info(f'Executing update (package_name={response_json["package_name"]}, commit={response_json["commit"]})')
         flatpak.execute_update(package_name=response_json['package_name'], commit=response_json['commit'])
-
-
 
 if __name__ == '__main__':
     main()
