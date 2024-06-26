@@ -155,7 +155,7 @@ class OTACampaignRollout(tornado.web.RequestHandler):
         for device_id in rollout_dto.device_ids:
             logger.info(f'Device "{device_id}" sent to the rollout queue')
             global_ota_campaign.add_to_rollout_queue_by_id(device_id,
-                                                           rollout_dto.package_version,
+                                                           rollout_dto.commit,
                                                            rollout_dto.package_name)
 
 

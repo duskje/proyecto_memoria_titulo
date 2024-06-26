@@ -4,7 +4,7 @@ from dataclasses import dataclass, fields
 @dataclass(frozen=True)
 class RolloutDTO:
     device_ids: list[str]
-    package_version: str
+    commit: str
     package_name: str
 
     @classmethod
