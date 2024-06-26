@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import requests
 from requests import ReadTimeout
 
+from ota_campaign_client.flatpak import Flatpak
+
 
 def main():
     load_dotenv()
@@ -17,6 +19,8 @@ def main():
     except FileNotFoundError:
         logger.error('Config file not found')
         return
+
+    flatpak = Flatpak()
 
     logger.info(f'Device ID: {device_config.id}')
 
@@ -34,7 +38,11 @@ def main():
             logger.debug("Timed out, listening again...")
             continue
 
-        logger.debug(response.content)
+        response_json = json.loads(response.content)
+
+        logger.info(f'Executing update (package_name={response_json["package_name"]}, commit={response_json["commit"]})')
+        flatpak.execute_update(package_name=response_json['package_name'], commit=response_json['commit'])
+
 
 
 if __name__ == '__main__':
